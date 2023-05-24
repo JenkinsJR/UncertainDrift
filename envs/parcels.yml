@@ -1,0 +1,10 @@
+name: parcels
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.8
+  - conda-forge::parcels=2.1.5
+  - cartopy=0.18
+  - py=1.11.0
+  - shapely=1.7.1
