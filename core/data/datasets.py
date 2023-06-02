@@ -11,7 +11,7 @@ from core import util
 
 class Snapshot(Dataset):
     def __init__(self, field_dir, density_map_dir, index_offsets_path,
-                 next_field=True):
+                 time_positions_path, seeds_path, next_field=True):
         self._next_field = next_field
         
         # data directories
@@ -28,17 +28,23 @@ class Snapshot(Dataset):
         # load fields into memory
         self._fields = self._fetch_fields()
 
+        # define mapping between density index -> field index
+        time_positions = np.load(time_positions_path)
+        seed_times = list(np.load(seeds_path, allow_pickle=True).item().keys())
+        self._density_to_field_index = np.searchsorted(
+            time_positions, seed_times)
+
 
     def __len__(self):
         return self._time_offsets[-1]
 
     def __getitem__(self, index):
         # fetch 3D index
-        time_index, ensemble_index, obs_index = self.unravel_index(index)
+        density_index, ensemble_index, obs_index = self.unravel_index(index)
         # fetch input field, input map, and label map
-        input_field = self.load_input_field(time_index, obs_index)
+        input_field = self.load_input_field(density_index, obs_index)
         input_map, label_map = self.load_density_map_pair(
-            time_index, ensemble_index, obs_index)
+            density_index, ensemble_index, obs_index)
         # stack the input field and map
         if input_field.ndim == 2:
             input_field = input_field[None]
@@ -67,24 +73,24 @@ class Snapshot(Dataset):
         
         return np.concatenate(fields)
 
-    def _load_field_from_index(self, time_index, obs_index):
-        field_index = time_index + obs_index
+    def _load_field_from_index(self, density_index, obs_index):
+        field_index = self._density_to_field_index[density_index] + obs_index
         
         return self._fields[field_index]
     
-    def load_input_field(self, time_index, obs_index):
-        input_field = self._load_field_from_index(time_index, obs_index)
+    def load_input_field(self, density_index, obs_index):
+        input_field = self._load_field_from_index(density_index, obs_index)
         if self._next_field:
             input_field_2 = self._load_field_from_index(
-                time_index, obs_index+1)
+                density_index, obs_index+1)
             input_field = np.concatenate((input_field, input_field_2))
             
         return input_field
     
-    def load_density_map_pair(self, time_index, ensemble_index, obs_index):
-        start_time_index = str(time_index)
+    def load_density_map_pair(self, density_index, ensemble_index, obs_index):
+        start_density_index = str(density_index)
         input_density_path = (
-            self._density_map_dir / start_time_index).with_suffix('.nc')
+            self._density_map_dir / start_density_index).with_suffix('.nc')
         
         density_maps = xr.open_dataset(input_density_path).density_map
         
@@ -95,12 +101,13 @@ class Snapshot(Dataset):
         if index >= len(self):
             raise IndexError('Index out of bounds')
             
-        time_index = (index < self._time_offsets).argmax()
+        density_index = (index < self._time_offsets).argmax()
         ensemble_index = (
-            index < self._ensemble_offsets[time_index]).argmax() - 1
-        obs_index = index - self._ensemble_offsets[time_index][ensemble_index]
+            index < self._ensemble_offsets[density_index]).argmax() - 1
+        obs_index = index - self._ensemble_offsets[
+            density_index][ensemble_index]
 
-        return time_index, ensemble_index, obs_index
+        return density_index, ensemble_index, obs_index
     
     def random_split(self, proportions):
         assert np.isclose(sum(proportions), 1)

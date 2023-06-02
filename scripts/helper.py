@@ -111,7 +111,7 @@ class Loader:
         
         dataset = datasets.Snapshot(
             field_dirs, self.paths.density_dir, self.paths.index_offsets,
-            **kwargs)
+            self.paths.time_positions, self.paths.seeds, **kwargs)
     
         if subset is not None:
             subset_path = (self.paths.subsets_dir / subset).with_suffix('.npy')
