@@ -1,6 +1,6 @@
 # A DNN Framework for Learning Lagrangian Drift With Uncertainty
 
-<a href='https://arxiv.org/abs/2204.05891'><img src='https://img.shields.io/badge/paper-arXiv-red'></a>
+<a href='https://arxiv.org/abs/2204.05891v2'><img src='https://img.shields.io/badge/paper-arXiv-red'></a>
 
 ## Installing requirements through conda
 
